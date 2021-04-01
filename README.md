@@ -14,6 +14,7 @@
     * [Example Testing Endpoint inside Django](#setup-example-endpoint-inside-django)
 * [Custom Log Message Format](#custom-log-message-format)
 * [Additional Methods](#additional-methods)
+* [Documentation(Kotlin/Android)](#documentation-for-android-using-kotlin)
 * [Contribute](#contribute)
 * [About HyperTrack](#about-hypertrack)
 * [License](#license)
@@ -38,6 +39,25 @@ timeStamp + " | " + appVersion + " : " + osVersion + " | " + deviceUUID + " | ["
 Download the latest version or grab via Gradle.
 
 The library is available on [`mavenCentral()`](https://dl.bintray.com/piyushgupta27/maven/com/hypertrack/hyperlog/) and [`jcenter()`](http://jcenter.bintray.com/com/hypertrack/hyperlog/). In your module's `build.gradle`, add the following code snippet and run the `gradle-sync`.
+from rest_framework import views
+
+class SDKLogFileAPIView(views.APIView):
+    '''
+    SDK Log endpoint for file uploads
+
+    Example curl call:
+    curl -i -X POST
+            -H "Content-Type: multipart/form-data"
+            -H "Authorization: token pk_e6c9cf663714fb4b96c12d265df554349e0db79b"
+            -H "Content-Disposition: attachment; filename=upload.txt"
+            -F "data=@/Users/Arjun/Desktop/filename.txt"
+            localhost:8000/api/v1/logs/
+    '''
+    parser_classes = (
+        parsers.FileUploadParser,
+    )
+
+    def post(self, request):
 
 
 ```
@@ -47,6 +67,24 @@ dependencies {
     ...
 }
 ```
+
+Don't forget to add also the following dependencies
+
+```
+
+    compile 'com.android.volley:volley:1.0.0'
+    compile 'com.google.code.gson:gson:2.8.1'
+   
+```
+and the following permession to AndroidManifest.xml
+
+```
+
+     <uses-permission android:name="android.permission.INTERNET" />
+   
+```
+
+
 
 ## Initialize
 Inside `onCreate` of Application class or Launcher Activity. 
@@ -113,7 +151,21 @@ HyperLog.pushLogs(this, false, new HLCallback() {
 The example code below will set you up with a view that can handle uploaded log files, decompress gzip, and print the contents of the file.
 
 ```python
-from rest_framework import views
+import zlib
+
+from backend_apps.hyperlogs.models import HyperLog
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+import logging
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+
+from rest_framework import views, parsers
+from rest_framework.response import Response
 
 class SDKLogFileAPIView(views.APIView):
     '''
@@ -155,18 +207,22 @@ class SDKLogFileAPIView(views.APIView):
         if not self.request.META.get('HTTP_CONTENT_ENCODING') == 'gzip':
             return self.handle_uploaded_file(f)
 
-        result = StringIO.StringIO()
+        result = StringIO()
 
         for chunk in f.chunks():
+            chunk = str(chunk, errors='ignore')
             result.write(chunk)
 
         stringified_value = result.getvalue()
         result.close()
         decompressor = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        stringified_value = str.encode(stringified_value)
+        logger.error('=================hyperlog=============')
+        logger.error(stringified_value)
         decompressed = decompressor.decompress(stringified_value)
 
         for line in decompressed.split('\n'):
-            print line
+            print (line)
 
     def handle_uploaded_file(self, f):
         '''
@@ -174,10 +230,15 @@ class SDKLogFileAPIView(views.APIView):
         can pick it up.
         '''
         for chunk in f.chunks():
+            logger.error("================================hyperlog======================")
+            logger.error(chunk)
+            chunk = chunk.decode()
             lines = chunk.split('\n')
-
+            logs=[]
             for line in lines:
-                print line
+                print (line)
+                logs.append(line)
+            HyperLog.objects.create(log=logs)
 ```
 
 
@@ -281,6 +342,9 @@ HyperLog.getDeviceLogs(boolean deleteLogs, int batchNo);
 ```
 * Get the number of batches using `HyperLog.getDeviceLogBatchCount`.
 * Developer can manually delete the logs using `HyperLog.deleteLogs`.
+
+## Documentation For Android using Kotlin
+Read the different methods and how to implement HyperLogs in Android using Kotlin [here](https://medium.com/better-programming/how-to-implement-hyperlog-with-kotlin-in-android-21f34a950c83?source=friends_link&sk=53464e017b4a5db6a81a586e61b03e43).
 
 ## Contribute
 Please use the [issues tracker](https://github.com/hypertrack/hyperlog-android/issues) to raise bug reports and feature requests. We'd love to see your pull requests, so send them in!
